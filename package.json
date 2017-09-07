@@ -7,13 +7,13 @@
   },
   "devDependencies": {
     "serverless": "^1.12.1",
-    "serverless-step-functions": "^1.0.2",
+    "serverless-step-functions": "file:./plugins/serverless-step-functions",
     "serverless-parameters": "^0.0.3",
     "serverless-pseudo-parameters": "^1.1.5",
     "serverless-portable-templates": "file:./plugins/serverless-portable-templates"
   },
   "license": "MIT",
   "repository": {
-    "git": "https://github.com/svdgraaf/github-codebuild-webhook"
+    "git": "https://github.com/Evres/github-codebuild-webhook"
   }
 }

@@ -29,6 +29,10 @@ custom:
       Type: String
       Default: ${env:SSM_GITHUB_ACCESS_TOKEN}
       Description: Encrypted SSM parameter name containing the generated Github access token
+    SsmGithubSecretToken:
+      Type: String
+      Default: ${env:SSM_GITHUB_SECRET_TOKEN}
+      Description: Encrypted SSM parameter name containing the secret to share with Github for verifying PR
 
 provider:
   name: aws
@@ -38,6 +42,19 @@ provider:
 
   # you can add statements to the Lambda function's IAM Role here
   iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+      Resource:
+        - 'Fn::Join':
+          - ':'
+          -
+            - 'arn:aws:logs'
+            - Ref: 'AWS::Region'
+            - Ref: 'AWS::AccountId'
+            - 'log-group:/aws/lambda/*:*:*'
     - Effect: "Allow"
       Action:
         - codebuild:*
@@ -48,8 +65,7 @@ provider:
       Resource:
         - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter${env:SSM_GITHUB_USERNAME}"
         - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter${env:SSM_GITHUB_ACCESS_TOKEN}"
-        - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter/${env:SSM_GITHUB_USERNAME}"
-        - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter/${env:SSM_GITHUB_ACCESS_TOKEN}"
+        - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter${env:SSM_GITHUB_SECRET_TOKEN}"
     - Effect: "Allow"
       Action:
         - kms:Decrypt
@@ -64,6 +80,8 @@ provider:
       Ref: SsmGithubUsername
     SSM_GITHUB_ACCESS_TOKEN:
       Ref: SsmGithubAccessToken
+    SSM_GITHUB_SECRET_TOKEN:
+      Ref: SsmGithubSecretToken
 
 functions:
   start-build:
