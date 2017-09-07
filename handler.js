@@ -15,6 +15,10 @@ var ssmParams = {
   accessToken: {
     Name: process.env.SSM_GITHUB_ACCESS_TOKEN,
     WithDecryption: true
+  },
+  secretToken: {
+    Name: process.env.SSM_GITHUB_SECRET_TOKEN,
+    WithDecryption: true
   }
 };
 
@@ -23,11 +27,13 @@ var region = process.env.AWS_DEFAULT_REGION;
 
 // this function will be triggered by the github webhook
 module.exports.start_build = (event, context, callback) => {
+  console.log(event);
 
   var response;
 
   // we only act on pull_request changes (can be any, but we don't need those)
   if('pull_request' in event) {
+    event = event.body;
 
     response.pull_request = event.pull_request
     var head = event.pull_request.head;
