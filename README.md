@@ -42,7 +42,7 @@ export KMS_SSM_KEYID="kms-key-id-used-by-ssm"
 ```
 
 4.  Run `serverless deploy`
-
+```shell
 serverless deploy -v
 ```
 
