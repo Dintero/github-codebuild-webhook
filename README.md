@@ -36,6 +36,7 @@ export BUILD_PROJECT="your_codebuild_application_name"
 export GITHUB_REPOSITORY="https://github.com/owner/repository"
 export SSM_GITHUB_USERNAME="/path/to/github-username"          # Path in SSM
 export SSM_GITHUB_ACCESS_TOKEN="/path/to/github-access-token"  # Path in SSM
+export SSM_GITHUB_SECRET_TOKEN="/path/to/github-secret-token"  # Path in SSM
 export KMS_SSM_KEYID="kms-key-id-used-by-ssm"
 ```
 

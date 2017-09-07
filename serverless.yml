@@ -29,6 +29,10 @@ custom:
       Type: String
       Default: ${env:SSM_GITHUB_ACCESS_TOKEN}
       Description: Encrypted SSM parameter name containing the generated Github access token
+    SsmGithubSecretToken:
+      Type: String
+      Default: ${env:SSM_GITHUB_SECRET_TOKEN}
+      Description: Encrypted SSM parameter name containing the secret to share with Github for verifying PR
 
 provider:
   name: aws
