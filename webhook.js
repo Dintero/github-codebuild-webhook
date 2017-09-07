@@ -54,10 +54,10 @@ module.exports.resource = (event, context, callback) => {
         sendResponse(event, context, "FAILED", {});
         callback(err);
       } else {
-        ssm.getParameter(ssmParams.secretToken, function (err, data) {
+        ssm.getParameter(ssmParams.secretToken, function (err, secretTokenData) {
           if (err) callback(err);
           else {
-            data.config.secret = data.Parameter.Value
+            data.config.secret = secretTokenData.Parameter.Value
             if (event.RequestType == "Create") {
               github.repos.createHook(data).then(function (data) {
                 sendResponse(event, context, "SUCCESS", {});

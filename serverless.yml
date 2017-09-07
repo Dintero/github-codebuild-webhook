@@ -65,7 +65,7 @@ provider:
       Resource:
         - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter${env:SSM_GITHUB_USERNAME}"
         - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter${env:SSM_GITHUB_ACCESS_TOKEN}"
-        - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter/${env:SSM_GITHUB_SECRET_TOKEN}"
+        - "arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter${env:SSM_GITHUB_SECRET_TOKEN}"
     - Effect: "Allow"
       Action:
         - kms:Decrypt
@@ -80,6 +80,8 @@ provider:
       Ref: SsmGithubUsername
     SSM_GITHUB_ACCESS_TOKEN:
       Ref: SsmGithubAccessToken
+    SSM_GITHUB_SECRET_TOKEN:
+      Ref: SsmGithubSecretToken
 
 functions:
   start-build:
