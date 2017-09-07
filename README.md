@@ -16,6 +16,7 @@ build status. This will be triggered for any PR update, on any branch.
     ```shell
     aws ssm put-parameter --name /path/to/github-username --value <GITHUB_USERNAME> --type SecureString
     aws ssm put-parameter --name /path/to/github-access-token --value <GITHUB_ACCESS_TOKEN> --type SecureString
+    aws ssm put-parameter --name /path/to/github-secret-token --value <GITHUB_SECRET_TOKEN> --type SecureString
     ```
 
 4.  Get the KMS key ID used to encrypt the SSM parameters. For example:
