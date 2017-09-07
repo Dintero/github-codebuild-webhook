@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 var AWS = require('aws-sdk');
 var codebuild = new AWS.CodeBuild();
 var ssm = new AWS.SSM();
@@ -25,79 +27,109 @@ var ssmParams = {
 // get the region where this lambda is running
 var region = process.env.AWS_DEFAULT_REGION;
 
+const authenticate = (params, event, callback) => {
+  ssm.getParameter(params.secretToken, function (err, data) {
+    if (err) {
+      callback(err);
+    }
+    const signature = event.headers['X-Hub-Signature']
+    const calculatedSignature = "sha1=" + crypto.createHmac(
+      "sha1", data.Parameter.Value
+    ).update(JSON.stringify(event.body)).digest('hex');
+
+    var errorMessage = null;
+    if (!signature) {
+      errorMessage = '[401] No X-Hub-Signature found on request';
+    }
+
+    if (signature !== calculatedSignature) {
+      errorMessage = '[401] X-Hub-Signature incorrect. Github webhook token ' +
+        signature + ' doesn\'t match ' + calculatedSignature;
+    } else {
+      console.log('Authentication by X-Hub-Signature successful')
+    }
+    callback(errorMessage);
+  });
+}
+
 // this function will be triggered by the github webhook
 module.exports.start_build = (event, context, callback) => {
-  console.log(event);
+  authenticate(ssmParams, event, (err) => {
+    if (err) {
+      console.log(err);
+      callback(err);
+    } else {
+      var response;
+      event = event.body;
 
-  var response;
+      // we only act on pull_request changes (can be any, but we don't need those)
+      if ('pull_request' in event) {
 
-  // we only act on pull_request changes (can be any, but we don't need those)
-  if('pull_request' in event) {
-    event = event.body;
+        response.pull_request = event.pull_request
+        var head = event.pull_request.head;
+        var repo = base.repo;
 
-    response.pull_request = event.pull_request
-    var head = event.pull_request.head;
-    var repo = base.repo;
+        var params = {
+          projectName: process.env.BUILD_PROJECT,
+          sourceVersion: 'pr/' + event.pull_request.number
+        };
 
-    var params = {
-      projectName: process.env.BUILD_PROJECT,
-      sourceVersion: 'pr/' + event.pull_request.number
-    };
+        var status = {
+          owner: repo.owner.login,
+          repo: repo.name,
+          sha: head.sha,
+          state: 'pending',
+          context: githubContext,
+          description: 'Setting up the build...'
+        };
 
-    var status = {
-      owner: repo.owner.login,
-      repo: repo.name,
-      sha: head.sha,
-      state: 'pending',
-      context: githubContext,
-      description: 'Setting up the build...'
-    };
+        setGithubAuth(github, ssm, ssmParams, function (err) {
+          if (err) {
+            console.log(err);
+            callback(err);
+          } else {
+            // check that we can set a status before starting the build
+            github.repos.createStatus(status).then(function () {
+              // start the codebuild  project
+              codebuild.startBuild(params, function (err, data) {
+                if (err) {
+                  console.log(err, err.stack);
+                  callback(err);
+                } else {
+                  // store the build data in the response
+                  response.build = data.build;
 
-    setGithubAuth(github, ssm, ssmParams, function (err) {
-      if (err) {
-        console.log(err);
-        callback(err);
-      } else {
-        // check that we can set a status before starting the build
-        github.repos.createStatus(status).then(function() {
-          // start the codebuild  project
-          codebuild.startBuild(params, function(err, data) {
-            if (err) {
+                  // all is well, mark the commit as being 'in progress'
+                  status.description = 'Build is running...'
+                  status.target_url = 'https://' + region + '.console.aws.amazon.com/codebuild/home?region=' + region + '#/builds/' + data.build.id + '/view/new'
+                  github.repos.createStatus(status).then(function (data) {
+                    // success
+                    callback(null, response);
+                  }).catch(function (err) {
+                    console.log(err);
+                    callback(err);
+                  });
+                }
+              });
+            }).catch(function (err) {
+              console.log("Github authentication failed");
               console.log(err, err.stack);
               callback(err);
-            } else {
-              // store the build data in the response
-              response.build = data.build;
-
-              // all is well, mark the commit as being 'in progress'
-              status.description = 'Build is running...'
-              status.target_url = 'https://' + region + '.console.aws.amazon.com/codebuild/home?region=' + region + '#/builds/' + data.build.id + '/view/new'
-              github.repos.createStatus(status).then(function(data){
-                // success
-                callback(null, response);
-              }).catch(function(err) {
-                console.log(err);
-                callback(err);
-              });
-            }
-          });
-        }).catch(function(err) {
-          console.log("Github authentication failed");
-          console.log(err, err.stack);
-          callback(err);
+            });
+          }
         });
+      } else {
+        callback("Not a PR");
       }
-    });
-  } else {
-    callback("Not a PR");
-  }
+    }
+  });
 }
 
 module.exports.check_build_status = (event, context, callback) => {
   var params = {
     ids: [event.id]
   }
-  codebuild.batchGetBuilds(params, function(err, data) {
+  codebuild.batchGetBuilds(params, function (err, data) {
     if (err) {
       console.log(err, err.stack);
       context.fail(err)
@@ -111,14 +143,14 @@ module.exports.check_build_status = (event, context, callback) => {
 module.exports.build_done = (event, context, callback) => {
   // get the necessary variables for the github call
   var url = event.source.location.split('/');
-  var repo = url[url.length-1].replace('.git', '');
-  var username = url[url.length-2];
+  var repo = url[url.length - 1].replace('.git', '');
+  var username = url[url.length - 2];
 
   console.log('Found commit identifier: ' + event.sourceVersion);
   var state = '';
 
   // map the codebuild status to github state
-  switch(event.buildStatus) {
+  switch (event.buildStatus) {
     case 'SUCCEEDED':
       state = 'success';
       break;
@@ -147,7 +179,7 @@ module.exports.build_done = (event, context, callback) => {
         target_url: 'https://' + region + '.console.aws.amazon.com/codebuild/home?region=' + region + '#/builds/' + event.build.id + '/view/new',
         context: githubContext,
         description: 'Build ' + buildStatus + '...'
-      }).catch(function(err){
+      }).catch(function (err) {
         console.log(err);
         context.fail(data);
       });
