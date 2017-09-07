@@ -59,14 +59,20 @@ module.exports.start_build = (event, context, callback) => {
       console.log(err);
       callback(err);
     } else {
-      var response;
+      var response = {
+        pull_request: {},
+        build: {}
+      };
+
       event = event.body;
 
       // we only act on pull_request changes (can be any, but we don't need those)
       if ('pull_request' in event) {
+        console.log("Cleared checks, this is a buildable event:", event)
+        response.pull_request = event.pull_request;
 
-        response.pull_request = event.pull_request
         var head = event.pull_request.head;
+        var base = event.pull_request.base;
         var repo = base.repo;
 
         var params = {
@@ -79,7 +85,7 @@ module.exports.start_build = (event, context, callback) => {
           repo: repo.name,
           sha: head.sha,
           state: 'pending',
-          context: githubContext,
+          context: 'CodeBuild',
           description: 'Setting up the build...'
         };
 
@@ -104,6 +110,7 @@ module.exports.start_build = (event, context, callback) => {
                   status.target_url = 'https://' + region + '.console.aws.amazon.com/codebuild/home?region=' + region + '#/builds/' + data.build.id + '/view/new'
                   github.repos.createStatus(status).then(function (data) {
                     // success
+                    console.log('start_build:success', response, data);
                     callback(null, response);
                   }).catch(function (err) {
                     console.log(err);
@@ -126,8 +133,10 @@ module.exports.start_build = (event, context, callback) => {
 }
 
 module.exports.check_build_status = (event, context, callback) => {
+  console.log('check_build_status', event);
+  var response = event;
   var params = {
-    ids: [event.id]
+    ids: [event.build.id]
   }
   codebuild.batchGetBuilds(params, function (err, data) {
     if (err) {
@@ -135,22 +144,26 @@ module.exports.check_build_status = (event, context, callback) => {
       context.fail(err)
       callback(err);
     } else {
-      callback(null, data.builds[0]);
+      response.build = data.builds[0]
+      console.log('check_build_status:success', response)
+      callback(null, response);
     }
   });
 }
 
 module.exports.build_done = (event, context, callback) => {
+  console.log('build_done', event)
   // get the necessary variables for the github call
-  var url = event.source.location.split('/');
-  var repo = url[url.length - 1].replace('.git', '');
-  var username = url[url.length - 2];
+  var base = event.pull_request.base;
+  var head = event.pull_request.head;
+  var repo = base.repo;
 
-  console.log('Found commit identifier: ' + event.sourceVersion);
+  console.log('Found commit identifier: ' + event.build.sourceVersion, head.sha);
+  var buildStatus = event.build.buildStatus;
   var state = '';
 
   // map the codebuild status to github state
-  switch (event.buildStatus) {
+  switch (buildStatus) {
     case 'SUCCEEDED':
       state = 'success';
       break;
@@ -177,7 +190,7 @@ module.exports.build_done = (event, context, callback) => {
         sha: head.sha,
         state: state,
         target_url: 'https://' + region + '.console.aws.amazon.com/codebuild/home?region=' + region + '#/builds/' + event.build.id + '/view/new',
-        context: githubContext,
+        context: 'CodeBuild',
         description: 'Build ' + buildStatus + '...'
       }).catch(function (err) {
         console.log(err);
