@@ -16,11 +16,6 @@ custom:
       Type: String
       Default: ${env:GITHUB_REPOSITORY}
       Description: "Github repository url, eg: https://github.com/[username]/[repository]"
-    GithubAccessToken:
-      Type: String
-      Default: ${env:GITHUB_ACCESS_TOKEN}
-      Description: Your generated github access token
-      NoEcho: true
     SsmGithubUsername:
       Type: String
       Default: ${env:SSM_GITHUB_USERNAME}
