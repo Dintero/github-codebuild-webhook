@@ -8,6 +8,11 @@ var ssm = new AWS.SSM();
 
 var GitHubApi = require("github");
 var github = new GitHubApi();
+var PULL_ACTIONS = [
+  "opened",
+  "reopened",
+  "synchronize"
+];
 
 var ssmParams = {
   username: {
@@ -66,8 +71,13 @@ module.exports.start_build = (event, context, callback) => {
 
       event = event.body;
 
+      const isPullRequestToBuild = (
+        'pull_request' in event &&
+        PULL_ACTIONS.indexOf(event.action) >= 0
+      );
+
       // we only act on pull_request changes (can be any, but we don't need those)
-      if ('pull_request' in event) {
+      if (isPullRequestToBuild) {
         console.log("Cleared checks, this is a buildable event:", event)
         response.pull_request = event.pull_request;
 
